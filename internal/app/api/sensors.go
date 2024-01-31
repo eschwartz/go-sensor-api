@@ -39,6 +39,10 @@ func (router *SensorRouter) Handler() http.Handler {
 	r.HandleFunc("/sensors/{name}", WithJSONHandler(router.GetSensorByNameHandler)).
 		Methods("GET")
 
+	// PUT /sensors/{name} - Update Sensor by Name
+	r.HandleFunc("/sensors/{name}", WithJSONHandler(router.UpdateSensorByNameHandler)).
+		Methods("PUT")
+
 	return r
 }
 
@@ -89,7 +93,41 @@ func (router *SensorRouter) GetSensorByNameHandler(r *http.Request) (interface{}
 
 	// Handle no matching sensor
 	if sensor == nil {
-		return nil, http.StatusNotFound, fmt.Errorf("no sensor exists with name \"%s\"", name)
+		return nil, http.StatusNotFound, &store.MissingResourceError{name, "sensor"}
+	}
+
+	return SensorDetailsResponse{*sensor}, http.StatusOK, nil
+}
+
+func (router *SensorRouter) UpdateSensorByNameHandler(r *http.Request) (interface{}, int, error) {
+	// Get sensor {name} from URL
+	vars := mux.Vars(r)
+	name, ok := vars["name"]
+	if !ok {
+		// Missing {name} means we probably misconfigured the route
+		log.Println("PUT /sensors/{name} request is missing the \"name\" var.")
+		return nil, http.StatusInternalServerError, errors.New("interval server error")
+	}
+
+	// Decode sensor JSON body
+	sensor, err := decodeSensorJSON(r.Body)
+	if err != nil {
+		// Invalid request body, respond with 400
+		return nil, http.StatusBadRequest, err
+	}
+
+	// Update the sensor in the data store
+	sensor, err = router.store.UpdateByName(name, sensor)
+	if err != nil {
+		// If there's not matching resource, return a 404
+		var missingErr *store.MissingResourceError
+		if errors.As(err, &missingErr) {
+			return nil, http.StatusNotFound, err
+		}
+
+		// Any other errors are treated as 500s
+		log.Printf("failed to update store in PUT /sensors/%s: %s", name, err)
+		return nil, http.StatusInternalServerError, errors.New("internal server error")
 	}
 
 	return SensorDetailsResponse{*sensor}, http.StatusOK, nil

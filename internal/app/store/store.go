@@ -3,12 +3,12 @@ package store
 import "fmt"
 
 type MissingResourceError struct {
-	id           string
-	resourceType string
+	ID           string
+	ResourceType string
 }
 
 func (e *MissingResourceError) Error() string {
-	return fmt.Sprintf("No %s resource exists: %s", e.resourceType, e.id)
+	return fmt.Sprintf("no %s resource exists: %s", e.ResourceType, e.ID)
 }
 
 type Sensor struct {

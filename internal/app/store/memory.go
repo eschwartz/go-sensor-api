@@ -34,8 +34,8 @@ func (s *MemorySensorStore) UpdateByName(name string, sensor *Sensor) (*Sensor, 
 	_, ok := s.byName[name]
 	if !ok {
 		return nil, &MissingResourceError{
-			id:           name,
-			resourceType: "sensor",
+			ID:           name,
+			ResourceType: "sensor",
 		}
 	}
 

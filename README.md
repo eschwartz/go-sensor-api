@@ -152,7 +152,7 @@ Update a sensor's metadata, by sensor name
 ```json
 PUT /sensors/abc123
 {
-  "name": "xyz789",
+  "name": "abc123",
   "lat": -36.8779565276809,
   "lon": 174.7881226266269744,
   "tags": [
@@ -168,7 +168,7 @@ HTTP 200
 {
     "data": {
       "id": "18595f26-d6c6-4fe8-999e-77f87d9edad0",
-      "name": "xyz789",
+      "name": "abc123",
       "lat": -36.8779565276809,
       "lon": 174.7881226266269744,
       "tags": [
