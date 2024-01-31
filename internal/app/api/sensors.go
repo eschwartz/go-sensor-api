@@ -1,13 +1,13 @@
 package api
 
 import (
-	"encoding/json"
+	"github.com/eschwartz/pingthings-sensor-api/internal/app/store"
 	"github.com/gorilla/mux"
-	"log"
 	"net/http"
 )
 
 type SensorRouter struct {
+	store store.SensorStore
 }
 
 func NewSensorRouter() *SensorRouter {
@@ -17,15 +17,13 @@ func NewSensorRouter() *SensorRouter {
 func (router *SensorRouter) Handler() http.Handler {
 	r := mux.NewRouter()
 
-	r.HandleFunc("/health", router.HealthCheckHandler)
+	r.HandleFunc("/health", WithJSONHandler(router.HealthCheckHandler))
 
 	return r
 }
 
-func (router *SensorRouter) HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
-	err := json.NewEncoder(w).Encode(map[string]bool{"ok": true})
-	if err != nil {
-		log.Printf("failed to encode json response: %s", err)
-		w.WriteHeader(500)
-	}
+func (router *SensorRouter) HealthCheckHandler(r *http.Request) (interface{}, int, error) {
+	return map[string]bool{
+		"ok": true,
+	}, 200, nil
 }
