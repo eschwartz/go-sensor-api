@@ -1,19 +1,15 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"github.com/gorilla/mux"
+	"github.com/eschwartz/pingthings-sensor-api/internal/app/api"
 	"log"
 	"net/http"
 	"os"
 )
 
 func main() {
-	r := mux.NewRouter()
-
-	// HTTP Routes
-	r.HandleFunc("/health", HealthCheckHandler)
+	router := api.NewSensorRouter()
 
 	// Read port from env var, or use default val
 	port := os.Getenv("PORT")
@@ -23,14 +19,6 @@ func main() {
 
 	// HTTP Listen
 	log.Printf("Listening on http://localhost:%s", port)
-	err := http.ListenAndServe(fmt.Sprintf(":%s", port), r)
+	err := http.ListenAndServe(fmt.Sprintf(":%s", port), router.Handler())
 	log.Fatal(err)
-}
-
-func HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
-	err := json.NewEncoder(w).Encode(map[string]bool{"ok": true})
-	if err != nil {
-		log.Printf("failed to encode json response: %s", err)
-		w.WriteHeader(500)
-	}
 }
