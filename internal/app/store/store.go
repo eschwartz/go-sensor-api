@@ -12,10 +12,10 @@ func (e *MissingResourceError) Error() string {
 }
 
 type Sensor struct {
-	Name string
-	Lat  float64
-	Lon  float64
-	Tags []string
+	Name string   `json:"name"`
+	Lat  float64  `json:"lat"`
+	Lon  float64  `json:"lon"`
+	Tags []string `json:"tags"`
 }
 
 type SensorStore interface {
