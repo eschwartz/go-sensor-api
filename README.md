@@ -15,6 +15,28 @@ At a minimum, this API should expose endpoints for the following:
 It is up to you how you structure your application, but please write it in Go and include anything you would
 in a professional project (i.e.: README, tests, input validation, etc).
 
+## Usage
+
+Install dependencies
+
+```
+go mod tidy
+```
+
+Run the HTTP server
+
+```
+go run ./cmd/sensor-api
+```
+
+### Environment configuration
+
+The following environment variables are supported:
+
+| Name | Description                                |
+|------|--------------------------------------------|
+| PORT | HTTP port to listen on. Defaults to `8000` |
+
 
 ## API Reference
 
