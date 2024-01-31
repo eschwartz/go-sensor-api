@@ -55,13 +55,15 @@ func (router *SensorRouter) CreateSensorHandler(r *http.Request) (interface{}, i
 		// Errors are mostly likely caused by malformed request bodies
 		// Here's a nice write-up on decoder error handling, if we want something
 		// more precise: https://www.alexedwards.net/blog/how-to-properly-parse-a-json-request-body
-		return nil, 400, fmt.Errorf("invalid request body: %w", err)
+		return nil, 400, err
 	}
 
 	// Store the new sensor
 	createdSensor, err := router.store.Create(sensor)
 	if err != nil {
-		return nil, 500, fmt.Errorf("failed to store sensor: %w", err)
+		// Unknown error from store, log and respond as 500
+		log.Printf("failed to create sensor: %s", err)
+		return nil, 500, fmt.Errorf("failed to store sensor: %w", errors.New("internal server error"))
 	}
 
 	return SensorDetailsResponse{*createdSensor}, http.StatusCreated, nil
@@ -80,7 +82,9 @@ func (router *SensorRouter) GetSensorByNameHandler(r *http.Request) (interface{}
 	// Retrieve sensor from data store
 	sensor, err := router.store.GetByName(name)
 	if err != nil {
-		return nil, http.StatusInternalServerError, err
+		// Unknown error from store, log and respond as 500
+		log.Printf("failed to retrieve sensor by name \"%s\": %s", name, err)
+		return nil, http.StatusInternalServerError, errors.New("interval server error")
 	}
 
 	// Handle no matching sensor
