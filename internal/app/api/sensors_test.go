@@ -12,22 +12,13 @@ import (
 
 func TestHealthCheck(t *testing.T) {
 	router := NewSensorRouter()
-	handler := router.Handler()
-	rr := httptest.NewRecorder()
 
 	// Send GET /health request
-	req, err := http.NewRequest("GET", "/health", nil)
-	require.NoError(t, err)
-	handler.ServeHTTP(rr, req)
-
-	// Should response w/200
+	rr := httpRequest(t, router, "GET", "/health", "")
 	require.Equal(t, http.StatusOK, rr.Code)
 
 	// Check the response body is what we expect.
-	var res map[string]bool
-	err = json.Unmarshal(rr.Body.Bytes(), &res)
-	require.NoError(t, err)
-
+	res := unmarshalResponseJSON(t, rr)
 	require.Equal(t, true, res["ok"])
 }
 
@@ -35,7 +26,7 @@ func TestCreateSensor(t *testing.T) {
 	router := NewSensorRouter()
 
 	// Create sensor using POST /sensors
-	rr := createSensor(t, router, `
+	rr := httpRequest(t, router, "POST", "/sensors", `
 		{
 		  "name": "abc123",
 		  "lat": 44.916241209323736,
@@ -51,10 +42,7 @@ func TestCreateSensor(t *testing.T) {
 	require.Equal(t, http.StatusCreated, rr.Code)
 
 	// Check json response
-	var res map[string]interface{}
-	err := json.Unmarshal(rr.Body.Bytes(), &res)
-	require.NoError(t, err)
-
+	res := unmarshalResponseJSON(t, rr)
 	require.Equal(t, map[string]interface{}{
 		"data": map[string]interface{}{
 			"name": "abc123",
@@ -84,7 +72,7 @@ func TestGetSensorByName(t *testing.T) {
 	router := NewSensorRouter()
 
 	// Create sensor using POST /sensors
-	rr := createSensor(t, router, `
+	rr := httpRequest(t, router, "POST", "/sensors", `
 		{
 		  "name": "abc123",
 		  "lat": 44.916241209323736,
@@ -100,21 +88,11 @@ func TestGetSensorByName(t *testing.T) {
 	require.Equal(t, http.StatusCreated, rr.Code)
 
 	// Get the sensor, using GET /sensors/:name
-	handler := router.Handler()
-	rr = httptest.NewRecorder()
-	req, err := http.NewRequest("GET", "/sensors/abc123", nil)
-	handler.ServeHTTP(rr, req)
-	require.NoError(t, err)
-
-	// Should respond with a 200
+	rr = httpRequest(t, router, "GET", "/sensors/abc123", "")
 	require.Equal(t, http.StatusOK, rr.Code)
 
-	// Unmarshal GET /sensors JSON response
-	var res map[string]interface{}
-	err = json.Unmarshal(rr.Body.Bytes(), &res)
-	require.NoError(t, err)
-
 	// Should return the sensor that we created earlier
+	res := unmarshalResponseJSON(t, rr)
 	require.Equal(t, map[string]interface{}{
 		"data": map[string]interface{}{
 			"name": "abc123",
@@ -133,21 +111,13 @@ func TestGetSensorByName_Missing(t *testing.T) {
 	router := NewSensorRouter()
 
 	// Get a sensor that doesn't exist, using GET /sensors/:name
-	handler := router.Handler()
-	rr := httptest.NewRecorder()
-	req, err := http.NewRequest("GET", "/sensors/not-a-sensor", nil)
-	handler.ServeHTTP(rr, req)
-	require.NoError(t, err)
+	rr := httpRequest(t, router, "GET", "/sensors/not-a-sensor", "")
 
 	// Should respond with a 404
 	require.Equal(t, http.StatusNotFound, rr.Code)
 
-	// Unmarshal GET /sensors JSON response
-	var res map[string]interface{}
-	err = json.Unmarshal(rr.Body.Bytes(), &res)
-	require.NoError(t, err)
-
-	// Should return an error
+	// Should include an error message
+	res := unmarshalResponseJSON(t, rr)
 	require.Equal(t, map[string]interface{}{
 		"error": "no sensor resource exists: not-a-sensor",
 	}, res)
@@ -283,11 +253,6 @@ func TestUpdateSensorByName_Invalid(t *testing.T) {
 func TestUpdateSensorByName_NewName(t *testing.T) {
 	// TODO: define this behavior...?
 	require.True(t, false, "TODO")
-}
-
-func createSensor(t *testing.T, router *SensorRouter, sensorJSON string) *httptest.ResponseRecorder {
-	// TODO: could remove this method, extra unneeded abstraction
-	return httpRequest(t, router, "POST", "/sensors", sensorJSON)
 }
 
 func httpRequest(t *testing.T, router *SensorRouter, method string, url string, body string) *httptest.ResponseRecorder {
