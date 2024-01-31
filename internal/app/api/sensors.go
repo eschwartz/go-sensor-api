@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/eschwartz/pingthings-sensor-api/internal/app/store"
 	"github.com/gorilla/mux"
+	"io"
 	"log"
 	"net/http"
 )
@@ -49,13 +50,7 @@ func (router *SensorRouter) HealthCheckHandler(r *http.Request) (interface{}, in
 
 func (router *SensorRouter) CreateSensorHandler(r *http.Request) (interface{}, int, error) {
 	// Parse JSON request body
-	// TODO: abstract for reuse
-	decoder := json.NewDecoder(r.Body)
-	// don't allow extra fields in request body
-	decoder.DisallowUnknownFields()
-
-	var sensor store.Sensor
-	err := decoder.Decode(&sensor)
+	sensor, err := decodeSensorJSON(r.Body)
 	if err != nil {
 		// Errors are mostly likely caused by malformed request bodies
 		// Here's a nice write-up on decoder error handling, if we want something
@@ -64,7 +59,7 @@ func (router *SensorRouter) CreateSensorHandler(r *http.Request) (interface{}, i
 	}
 
 	// Store the new sensor
-	createdSensor, err := router.store.Create(&sensor)
+	createdSensor, err := router.store.Create(sensor)
 	if err != nil {
 		return nil, 500, fmt.Errorf("failed to store sensor: %w", err)
 	}
@@ -94,6 +89,21 @@ func (router *SensorRouter) GetSensorByNameHandler(r *http.Request) (interface{}
 	}
 
 	return SensorDetailsResponse{*sensor}, http.StatusOK, nil
+}
+
+func decodeSensorJSON(r io.Reader) (*store.Sensor, error) {
+	// Parse JSON request body
+	decoder := json.NewDecoder(r)
+	// don't allow extra fields in request body
+	decoder.DisallowUnknownFields()
+
+	var sensor store.Sensor
+	err := decoder.Decode(&sensor)
+	if err != nil {
+		return nil, fmt.Errorf("invalid request body: %w", err)
+	}
+
+	return &sensor, nil
 }
 
 type SensorDetailsResponse struct {
