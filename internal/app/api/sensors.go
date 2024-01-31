@@ -2,9 +2,11 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/eschwartz/pingthings-sensor-api/internal/app/store"
 	"github.com/gorilla/mux"
+	"log"
 	"net/http"
 )
 
@@ -23,10 +25,18 @@ func NewSensorRouter() *SensorRouter {
 func (router *SensorRouter) Handler() http.Handler {
 	r := mux.NewRouter()
 
-	r.HandleFunc("/health", WithJSONHandler(router.HealthCheckHandler))
+	// GET /health - Health Check
+	r.HandleFunc("/health", WithJSONHandler(router.HealthCheckHandler)).
+		Methods("GET")
+
+	// POST /sensors - Create Sensor
 	r.HandleFunc("/sensors", WithJSONHandler(router.CreateSensorHandler)).
 		Methods("POST").
 		Headers("Content-Type", "application/json")
+
+	// GET /sensors/{name} - Get Sensor by Name
+	r.HandleFunc("/sensors/{name}", WithJSONHandler(router.GetSensorByNameHandler)).
+		Methods("GET")
 
 	return r
 }
@@ -34,7 +44,7 @@ func (router *SensorRouter) Handler() http.Handler {
 func (router *SensorRouter) HealthCheckHandler(r *http.Request) (interface{}, int, error) {
 	return map[string]bool{
 		"ok": true,
-	}, 200, nil
+	}, http.StatusOK, nil
 }
 
 func (router *SensorRouter) CreateSensorHandler(r *http.Request) (interface{}, int, error) {
@@ -59,9 +69,33 @@ func (router *SensorRouter) CreateSensorHandler(r *http.Request) (interface{}, i
 		return nil, 500, fmt.Errorf("failed to store sensor: %w", err)
 	}
 
-	return SensorResponse{*createdSensor}, 201, nil
+	return SensorDetailsResponse{*createdSensor}, http.StatusCreated, nil
 }
 
-type SensorResponse struct {
+func (router *SensorRouter) GetSensorByNameHandler(r *http.Request) (interface{}, int, error) {
+	// Get sensor {name} from URL
+	vars := mux.Vars(r)
+	name, ok := vars["name"]
+	if !ok {
+		// Missing {name} means we probably misconfigured the route
+		log.Println("GET /sensors/{name} request is missing the \"name\" var.")
+		return nil, http.StatusInternalServerError, errors.New("interval server error")
+	}
+
+	// Retrieve sensor from data store
+	sensor, err := router.store.GetByName(name)
+	if err != nil {
+		return nil, http.StatusInternalServerError, err
+	}
+
+	// Handle no matching sensor
+	if sensor == nil {
+		return nil, http.StatusNotFound, fmt.Errorf("no sensor exists with name \"%s\"", name)
+	}
+
+	return SensorDetailsResponse{*sensor}, http.StatusOK, nil
+}
+
+type SensorDetailsResponse struct {
 	Data store.Sensor `json:"data"`
 }
