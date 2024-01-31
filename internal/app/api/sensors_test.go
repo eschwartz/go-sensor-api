@@ -8,16 +8,17 @@ import (
 	"testing"
 )
 
-func TestHealthCheckHandler(t *testing.T) {
+func TestHealthCheck(t *testing.T) {
 	router := NewSensorRouter()
-
+	handler := router.Handler()
 	rr := httptest.NewRecorder()
 
-	handler := router.Handler()
+	// Send GET /health request
 	req, err := http.NewRequest("GET", "/health", nil)
 	require.NoError(t, err)
 	handler.ServeHTTP(rr, req)
 
+	// Should response w/200
 	require.Equal(t, http.StatusOK, rr.Code)
 
 	// Check the response body is what we expect.
