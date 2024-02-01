@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/cridenour/go-postgis"
+	"github.com/lib/pq"
 	_ "github.com/lib/pq"
 	"strings"
 )
@@ -24,7 +25,6 @@ func NewPostgisStore(dbUrl string) (*PostgisStore, error) {
 }
 
 func (store *PostgisStore) Create(sensor *Sensor) (*Sensor, error) {
-
 	// Insert the sensor record
 	createSql := `
 		INSERT INTO sensors (name, location) 
@@ -69,8 +69,34 @@ func (store *PostgisStore) Create(sensor *Sensor) (*Sensor, error) {
 }
 
 func (store *PostgisStore) GetByName(name string) (*Sensor, error) {
-	//TODO implement me
-	panic("implement me")
+	sql := `
+		SELECT 
+			sensors.id, 
+			sensors.location,
+			array_remove(array_agg(tags.value), NULL) as tags
+		FROM sensors
+		LEFT JOIN tags on sensors.id = tags.sensor_id
+		WHERE sensors.name = $1
+		GROUP BY sensors.id
+	`
+	var id int
+	location := postgis.PointS{
+		SRID: 4326,
+	}
+	var tags pq.StringArray
+	err := store.db.QueryRow(sql, name).
+		Scan(&id, &location, &tags)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Sensor{
+		ID:   id,
+		Name: name,
+		Lon:  location.X,
+		Lat:  location.Y,
+		Tags: tags,
+	}, nil
 }
 
 func (store *PostgisStore) UpdateByName(name string, sensor *Sensor) (*Sensor, error) {

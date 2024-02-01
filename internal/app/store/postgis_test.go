@@ -18,7 +18,7 @@ func resetDb(t *testing.T, dbUrl string) {
 	require.NoError(t, err)
 }
 
-func TestPostgisStore_Create(t *testing.T) {
+func TestPostgisStore_CreateAndGetByName(t *testing.T) {
 	// Skip tests unless the test DB env var is set
 	dbUrl := os.Getenv("TEST_DATABASE_URL")
 	if dbUrl == "" {
@@ -42,6 +42,18 @@ func TestPostgisStore_Create(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	require.Equal(t, &Sensor{
+		ID:   sensor.ID,
+		Name: "sensor-abc",
+		Lat:  45.123456,
+		Lon:  -90.98765,
+		Tags: []string{"a", "b", "c"},
+	}, sensor)
+	require.NotEqual(t, 0, sensor.ID)
+
+	// Retrieve the created sensor
+	sensor, err = store.GetByName("sensor-abc")
+	require.NoError(t, err)
 	require.Equal(t, &Sensor{
 		ID:   sensor.ID,
 		Name: "sensor-abc",
