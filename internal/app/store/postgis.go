@@ -28,6 +28,7 @@ func NewPostgisStore(dbUrl string) (*PostgisStore, error) {
 func (store *PostgisStore) Create(sensor *Sensor) (*Sensor, error) {
 	// Begin the DB transaction
 	tx, err := store.db.BeginTx(context.Background(), nil)
+	defer tx.Rollback()
 
 	// Insert the sensor record
 	createSql := `
@@ -78,6 +79,11 @@ func (store *PostgisStore) GetByName(name string) (*Sensor, error) {
 	err := store.db.QueryRow(sql, name).
 		Scan(&id, &location, &tags)
 	if err != nil {
+		// We want to return nil if there are no matches
+		// sql lib does not have typed errors, so we need to match on a string here
+		if err.Error() == "sql: no rows in result set" {
+			return nil, nil
+		}
 		return nil, err
 	}
 
@@ -93,6 +99,7 @@ func (store *PostgisStore) GetByName(name string) (*Sensor, error) {
 func (store *PostgisStore) UpdateByName(name string, sensor *Sensor) (*Sensor, error) {
 	// Begin the DB transaction
 	tx, err := store.db.BeginTx(context.Background(), nil)
+	defer tx.Rollback()
 
 	var id int
 	err = tx.QueryRow(`
@@ -102,6 +109,10 @@ func (store *PostgisStore) UpdateByName(name string, sensor *Sensor) (*Sensor, e
 		RETURNING id
 	`, name, sensor.Name, newGisPoint(sensor.Lat, sensor.Lon)).Scan(&id)
 	if err != nil {
+		// Handle no match errors
+		if err.Error() == "sql: no rows in result set" {
+			return nil, fmt.Errorf("failed to update sensor: no sensor exists with name \"%s\"", name)
+		}
 		return nil, err
 	}
 

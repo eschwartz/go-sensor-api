@@ -152,5 +152,16 @@ func TestPostgisStore_UpdateByName(t *testing.T) {
 }
 
 func TestNewPostgisStore_UpdateMissing(t *testing.T) {
-	require.True(t, false)
+	store, cleanup := testSetup(t)
+	defer cleanup()
+
+	// Update a sensor that does not exist
+	_, err := store.UpdateByName("sensor-xyz", &Sensor{
+		Name: "sensor-xyz",
+		Lat:  -36.8779565276809,
+		Lon:  174.7881226266269744,
+		Tags: []string{"x", "y", "z"},
+	})
+	require.Error(t, err)
+	require.Equal(t, "failed to update sensor: no sensor exists with name \"sensor-xyz\"", err.Error())
 }
