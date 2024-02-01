@@ -3,6 +3,8 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
+	"github.com/eschwartz/pingthings-sensor-api/internal/app/store"
 	"github.com/stretchr/testify/require"
 	"io"
 	"net/http"
@@ -58,14 +60,43 @@ func TestCreateSensor(t *testing.T) {
 }
 
 func TestCreateSensor_Invalid(t *testing.T) {
-	// TODO
-	require.True(t, false, "TODO")
+	router := NewSensorRouter()
+
+	// Create a sensor with an invalid payload
+	rr := httpRequest(t, router, "POST", "/sensors", `
+		{
+		  "not": "valid",
+		  "sensor": "data"
+		}
+	`)
+	// Should respond with a 400
+	require.Equal(t, http.StatusBadRequest, rr.Code)
 }
 
 func TestCreateSensor_StoreFailure(t *testing.T) {
-	// TODO
-	// Maybe make a store that fails on every method?
-	require.True(t, false, "TODO")
+	// Use FailingSensorStore, to test
+	// the behavior of the API when the storage backend fails
+	router := &SensorRouter{
+		store: &FailingSensorStore{},
+	}
+
+	// Attempt to create a sensor, with a failing store
+	rr := httpRequest(t, router, "POST", "/sensors", `
+		{
+		  "name": "abc123",
+		  "lat": 44.916241209323736,
+		  "lon": -93.21112681214602,
+		  "tags": []
+		}
+	`)
+	// Should respond with a 500
+	require.Equal(t, http.StatusInternalServerError, rr.Code)
+
+	// Should respond with an error message
+	res := unmarshalResponseJSON(t, rr)
+	require.Equal(t, map[string]interface{}{
+		"error": "failed to store sensor: internal server error",
+	}, res)
 }
 
 func TestGetSensorByName(t *testing.T) {
@@ -120,6 +151,36 @@ func TestGetSensorByName_Missing(t *testing.T) {
 	res := unmarshalResponseJSON(t, rr)
 	require.Equal(t, map[string]interface{}{
 		"error": "no sensor resource exists: not-a-sensor",
+	}, res)
+}
+
+func TestGetSensor_StoreFailure(t *testing.T) {
+	router := NewSensorRouter()
+
+	// Create sensor using POST /sensors
+	rr := httpRequest(t, router, "POST", "/sensors", `
+		{
+		  "name": "abc123",
+		  "lat": 44.916241209323736,
+		  "lon": -93.21112681214602,
+		  "tags": []
+		}
+	`)
+	// Should response w/201
+	require.Equal(t, http.StatusCreated, rr.Code)
+
+	// Use a failing store backend, to test how the GET endpoint handles it
+	router.store = &FailingSensorStore{}
+
+	// Get the sensor, using GET /sensors/:name
+	rr = httpRequest(t, router, "GET", "/sensors/abc123", "")
+	// Should return a 500
+	require.Equal(t, http.StatusInternalServerError, rr.Code)
+
+	// Should return the sensor that we created earlier
+	res := unmarshalResponseJSON(t, rr)
+	require.Equal(t, map[string]interface{}{
+		"error": "failed to retrieve sensor: interval server error",
 	}, res)
 }
 
@@ -250,9 +311,45 @@ func TestUpdateSensorByName_Invalid(t *testing.T) {
 	}, res)
 }
 
-func TestUpdateSensorByName_NewName(t *testing.T) {
-	// TODO: define this behavior...?
-	require.True(t, false, "TODO")
+func TestUpdateSensor_StoreFailure(t *testing.T) {
+	router := NewSensorRouter()
+
+	// Create sensor using POST /sensors
+	rr := httpRequest(t, router, "POST", "/sensors", `
+		{
+		  "name": "abc123",
+		  "lat": 44.916241209323736,
+		  "lon": -93.21112681214602,
+		  "tags": []
+		}
+	`)
+	// Should response w/201
+	require.Equal(t, http.StatusCreated, rr.Code)
+
+	// Use a failing store backend, to test how the GET endpoint handles it
+	router.store = &FailingSensorStore{}
+
+	// Update the sensor, using PUT /sensors/:name
+	rr = httpRequest(t, router, "PUT", "/sensors/abc123", `
+		{
+		  "name": "abc123",
+		  "lat": -36.8779565276809,
+		  "lon": 174.7881226266269744,
+		  "tags": [
+			"a",
+			"b",
+			"c"
+		  ]
+		}
+	`)
+	// Should return a 500
+	require.Equal(t, http.StatusInternalServerError, rr.Code)
+
+	// Should return the sensor that we created earlier
+	res := unmarshalResponseJSON(t, rr)
+	require.Equal(t, map[string]interface{}{
+		"error": "failed to update sensor: internal server error",
+	}, res)
 }
 
 func httpRequest(t *testing.T, router *SensorRouter, method string, url string, body string) *httptest.ResponseRecorder {
@@ -284,4 +381,22 @@ func unmarshalResponseJSON(t *testing.T, rr *httptest.ResponseRecorder) map[stri
 	require.NoError(t, err)
 
 	return res
+}
+
+// FailingSensorStore is an implementation of SensorStore,
+// where every method returns an error.
+// This may be used to integration test API behavior in case of failing store backends
+type FailingSensorStore struct {
+}
+
+func (f FailingSensorStore) Create(sensor *store.Sensor) (*store.Sensor, error) {
+	return nil, errors.New("FailingSensorStore.Create() failing for tests, on purpose")
+}
+
+func (f FailingSensorStore) GetByName(name string) (*store.Sensor, error) {
+	return nil, errors.New("FailingSensorStore.GetByName() failing for tests, on purpose")
+}
+
+func (f FailingSensorStore) UpdateByName(name string, sensor *store.Sensor) (*store.Sensor, error) {
+	return nil, errors.New("FailingSensorStore.UpdateByName() failing for tests, on purpose")
 }

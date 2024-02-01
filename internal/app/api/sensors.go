@@ -88,7 +88,7 @@ func (router *SensorRouter) GetSensorByNameHandler(r *http.Request) (interface{}
 	if err != nil {
 		// Unknown error from store, log and respond as 500
 		log.Printf("failed to retrieve sensor by name \"%s\": %s", name, err)
-		return nil, http.StatusInternalServerError, errors.New("interval server error")
+		return nil, http.StatusInternalServerError, errors.New("failed to retrieve sensor: interval server error")
 	}
 
 	// Handle no matching sensor
@@ -127,7 +127,7 @@ func (router *SensorRouter) UpdateSensorByNameHandler(r *http.Request) (interfac
 
 		// Any other errors are treated as 500s
 		log.Printf("failed to update store in PUT /sensors/%s: %s", name, err)
-		return nil, http.StatusInternalServerError, errors.New("internal server error")
+		return nil, http.StatusInternalServerError, errors.New("failed to update sensor: internal server error")
 	}
 
 	return SensorDetailsResponse{*sensor}, http.StatusOK, nil
