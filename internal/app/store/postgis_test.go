@@ -18,7 +18,7 @@ func resetDb(t *testing.T, dbUrl string) {
 	require.NoError(t, err)
 }
 
-func TestPostgisStore_CreateAndGetByName(t *testing.T) {
+func testSetup(t *testing.T) (*PostgisStore, func()) {
 	// Skip tests unless the test DB env var is set
 	dbUrl := os.Getenv("TEST_DATABASE_URL")
 	if dbUrl == "" {
@@ -27,11 +27,20 @@ func TestPostgisStore_CreateAndGetByName(t *testing.T) {
 
 	// Reset DB before and after each test
 	resetDb(t, dbUrl)
-	defer resetDb(t, dbUrl)
 
 	store, err := NewPostgisStore(dbUrl)
 	require.NoError(t, err)
-	defer store.Close()
+
+	// Return a cleanup function
+	return store, func() {
+		resetDb(t, dbUrl)
+		_ = store.Close()
+	}
+}
+
+func TestPostgisStore_CreateAndGetByName(t *testing.T) {
+	store, cleanup := testSetup(t)
+	defer cleanup()
 
 	// Create a sensor
 	sensor, err := store.Create(&Sensor{
@@ -65,19 +74,8 @@ func TestPostgisStore_CreateAndGetByName(t *testing.T) {
 }
 
 func TestPostgisStore_CreateAndGetByNameNoTags(t *testing.T) {
-	// Skip tests unless the test DB env var is set
-	dbUrl := os.Getenv("TEST_DATABASE_URL")
-	if dbUrl == "" {
-		t.Skip("Skipping database tests")
-	}
-
-	// Reset DB before and after each test
-	resetDb(t, dbUrl)
-	defer resetDb(t, dbUrl)
-
-	store, err := NewPostgisStore(dbUrl)
-	require.NoError(t, err)
-	defer store.Close()
+	store, cleanup := testSetup(t)
+	defer cleanup()
 
 	// Create a sensor with no tags
 	sensor, err := store.Create(&Sensor{
@@ -109,26 +107,21 @@ func TestPostgisStore_CreateAndGetByNameNoTags(t *testing.T) {
 }
 
 func TestNewPostgisStore_GetByNameMissing(t *testing.T) {
-	require.True(t, false)
+	store, cleanup := testSetup(t)
+	defer cleanup()
+
+	// Retrieve a sensor that doesn't exist
+	sensor, err := store.GetByName("not-a-sensor")
+	require.NoError(t, err)
+	require.Nil(t, sensor)
 }
 
 func TestPostgisStore_UpdateByName(t *testing.T) {
-	// Skip tests unless the test DB env var is set
-	dbUrl := os.Getenv("TEST_DATABASE_URL")
-	if dbUrl == "" {
-		t.Skip("Skipping database tests")
-	}
-
-	// Reset DB before and after each test
-	resetDb(t, dbUrl)
-	defer resetDb(t, dbUrl)
-
-	store, err := NewPostgisStore(dbUrl)
-	require.NoError(t, err)
-	defer store.Close()
+	store, cleanup := testSetup(t)
+	defer cleanup()
 
 	// Create a sensor
-	_, err = store.Create(&Sensor{
+	_, err := store.Create(&Sensor{
 		Name: "sensor-abc",
 		Lat:  45.123456,
 		Lon:  -90.98765,
