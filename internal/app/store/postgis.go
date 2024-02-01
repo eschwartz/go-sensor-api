@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"github.com/cridenour/go-postgis"
@@ -25,6 +26,9 @@ func NewPostgisStore(dbUrl string) (*PostgisStore, error) {
 }
 
 func (store *PostgisStore) Create(sensor *Sensor) (*Sensor, error) {
+	// Begin the DB transaction
+	tx, err := store.db.BeginTx(context.Background(), nil)
+
 	// Insert the sensor record
 	createSql := `
 		INSERT INTO sensors (name, location) 
@@ -34,7 +38,7 @@ func (store *PostgisStore) Create(sensor *Sensor) (*Sensor, error) {
 		RETURNING id;
 	`
 	var id int
-	err := store.db.QueryRow(createSql, sensor.Name, postgis.PointS{SRID: 4326, X: sensor.Lon, Y: sensor.Lat}).
+	err = tx.QueryRow(createSql, sensor.Name, newGisPoint(sensor.Lat, sensor.Lon)).
 		Scan(&id)
 	if err != nil {
 		return nil, err
@@ -44,25 +48,14 @@ func (store *PostgisStore) Create(sensor *Sensor) (*Sensor, error) {
 	sensor.ID = id
 
 	// Insert tags
-	// TODO wrap this all in a transaction, so we don't get dangling sensors without tags
-	if len(sensor.Tags) > 0 {
-		tagSql := `
-			INSERT INTO tags (sensor_id, value)
-			VALUES 
-		`
-		// Need to dynamically create VALUES, to insert a row for every specified tag
-		var tagValuesSqls []string
-		tagSqlArgs := []any{sensor.ID}
-		for i, tag := range sensor.Tags {
-			tagValuesSqls = append(tagValuesSqls, fmt.Sprintf("($1, $%d)", i+2))
-			tagSqlArgs = append(tagSqlArgs, tag)
-		}
-		tagSql += strings.Join(tagValuesSqls, ", ")
+	err = store.createSensorTags(sensor.ID, sensor.Tags, tx)
+	if err != nil {
+		return nil, err
+	}
 
-		_, err = store.db.Exec(tagSql, tagSqlArgs...)
-		if err != nil {
-			return nil, err
-		}
+	// Commit the transaction.
+	if err = tx.Commit(); err != nil {
+		return nil, err
 	}
 
 	return sensor, nil
@@ -80,9 +73,7 @@ func (store *PostgisStore) GetByName(name string) (*Sensor, error) {
 		GROUP BY sensors.id
 	`
 	var id int
-	location := postgis.PointS{
-		SRID: 4326,
-	}
+	location := newGisPoint(0, 0)
 	var tags pq.StringArray
 	err := store.db.QueryRow(sql, name).
 		Scan(&id, &location, &tags)
@@ -100,10 +91,71 @@ func (store *PostgisStore) GetByName(name string) (*Sensor, error) {
 }
 
 func (store *PostgisStore) UpdateByName(name string, sensor *Sensor) (*Sensor, error) {
-	//TODO implement me
-	panic("implement me")
+	// Begin the DB transaction
+	tx, err := store.db.BeginTx(context.Background(), nil)
+
+	var id int
+	err = tx.QueryRow(`
+		UPDATE sensors
+		SET name = $2, location = GeomFromEWKB($3)
+		WHERE name = $1
+		RETURNING id
+	`, name, sensor.Name, newGisPoint(sensor.Lat, sensor.Lon)).Scan(&id)
+	if err != nil {
+		return nil, err
+	}
+
+	sensor.ID = id
+
+	// Replace all the tags
+	// TODO: There's probably a way to do this that avoids unnecessary deletion
+	// Delete all the tags....
+	_, err = store.db.Exec(`
+		DELETE FROM tags
+		WHERE sensor_id = $1
+	`, sensor.ID)
+	if err != nil {
+		return nil, err
+	}
+	// ...then recreate them all
+	if err := store.createSensorTags(sensor.ID, sensor.Tags, tx); err != nil {
+		return nil, err
+	}
+
+	// Commit the transaction.
+	if err = tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	return sensor, nil
 }
 
 func (store *PostgisStore) Close() error {
 	return store.db.Close()
+}
+
+func (store *PostgisStore) createSensorTags(sensorId int, tags []string, tx *sql.Tx) error {
+	if len(tags) == 0 {
+		return nil
+	}
+
+	tagSql := `
+			INSERT INTO tags (sensor_id, value)
+			VALUES 
+		`
+	// Need to dynamically create VALUES, to insert a row for every specified tag
+	var tagValuesSqls []string
+	tagSqlArgs := []any{sensorId}
+	for i, tag := range tags {
+		tagValuesSqls = append(tagValuesSqls, fmt.Sprintf("($1, $%d)", i+2))
+		tagSqlArgs = append(tagSqlArgs, tag)
+	}
+	tagSql += strings.Join(tagValuesSqls, ", ")
+
+	_, err := tx.Exec(tagSql, tagSqlArgs...)
+	return err
+}
+
+func newGisPoint(lat, lon float64) *postgis.PointS {
+	return &postgis.PointS{SRID: 4326, X: lon, Y: lat}
 }
