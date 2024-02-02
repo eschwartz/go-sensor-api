@@ -12,8 +12,7 @@ At a minimum, this API should expose endpoints for the following:
 - Updating a sensor’s metadata.
 - Querying to find the sensor nearest to a given location.
 
-It is up to you how you structure your application, but please write it in Go and include anything you would
-in a professional project (i.e.: README, tests, input validation, etc).
+It is up to you how you structure your application, but please write it in Go and include anything you would in a professional project (i.e.: README, tests, input validation, etc).
 
 ## Usage
 
@@ -23,19 +22,70 @@ Install dependencies
 go mod tidy
 ```
 
+Setup a local database
+
+```sh
+# See "Database Setup" below
+./scripts/docker-db.sh
+export DATABASE_URL=postgres://admin:mysecretpassword@localhost:5432/sensors?sslmode=disable
+```
+
 Run the HTTP server
 
 ```
 go run ./cmd/sensor-api
 ```
 
+This will start the API server on `localhost:8000`
+
+## Database Setup
+
+The sensors API requires a Postgres database with the postgis extension installed. To create the necessary database tables, see [`scripts/db-init.sql`](./scripts/db-init.sql) 
+
+For local development, you can quickly create a test database in a docker container:
+
+```sh
+./scripts/docker-db.sh
+```
+
+This will start a `postgis/postgis` docker container initialized with the necessary database tables. You may connect to that database using:
+
+```
+postgres://admin:mysecretpassword@localhost:5432/sensors?sslmode=disable
+```
+
+## Tests
+
+To run tests:
+
+```
+go test ./...
+```
+
+Some tests require a test database, and will be skipped if none is specified. To specify the test database, use the `TEST_DATABASE_URL` environment variable:
+
+```sh
+# Create a test database in a docker container
+./scripts/docker-db.sh
+
+# Configure the database url
+export TEST_DATABASE_URL=postgres://admin:mysecretpassword@localhost:5432/sensors?sslmode=disable
+
+# Run tests
+go test ./...
+```
+
+> Test database tables **will be truncated** with every test run. **Do not use a live database!**
+
+
 ### Environment configuration
 
 The following environment variables are supported:
 
-| Name | Description                                |
-|------|--------------------------------------------|
-| PORT | HTTP port to listen on. Defaults to `8000` |
+| Name         | Description                                |
+|--------------|--------------------------------------------|
+| PORT         | HTTP port to listen on. Defaults to `8000` |
+| DATABASE_URL | URL to connect to the postgres database    |
 
 
 ## API Reference
@@ -54,7 +104,7 @@ GET /sensors/abc123
 HTTP 200
 {
     "data": {
-      "id": "18595f26-d6c6-4fe8-999e-77f87d9edad0",
+      "id": 1234,
       "name": "abc123",
       "lat": 44.916241209323736,
       "lon": -93.21112681214602,
@@ -82,7 +132,7 @@ HTTP 200
 {
     "data": [
       {
-        "id": "18595f26-d6c6-4fe8-999e-77f87d9edad0",
+        "id": 1234,
         "name": "abc123",
         "lat": 44.916241209323736,
         "lon": -93.21112681214602,
@@ -129,7 +179,7 @@ POST /sensors
 HTTP 201
 {
     "data": {
-      "id": "18595f26-d6c6-4fe8-999e-77f87d9edad0",
+      "id": 1234,
       "name": "abc123",
       "lat": 44.916241209323736,
       "lon": -93.21112681214602,
@@ -166,7 +216,7 @@ PUT /sensors/abc123
 HTTP 200
 {
     "data": {
-      "id": "18595f26-d6c6-4fe8-999e-77f87d9edad0",
+      "id": 1234,
       "name": "abc123",
       "lat": -36.8779565276809,
       "lon": 174.7881226266269744,
