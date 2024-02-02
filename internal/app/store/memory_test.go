@@ -82,5 +82,5 @@ func TestUpdateMissing(t *testing.T) {
 	require.Nil(t, updatedSensor)
 	require.NotNil(t, err)
 	require.IsType(t, err, &MissingResourceError{})
-	require.Equal(t, "No sensor resource exists: abc123", err.Error())
+	require.Equal(t, "no sensor resource exists: abc123", err.Error())
 }
