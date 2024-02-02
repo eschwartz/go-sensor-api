@@ -45,8 +45,11 @@ func TestCreateSensor(t *testing.T) {
 
 	// Check json response
 	res := unmarshalResponseJSON(t, rr)
+
 	require.Equal(t, map[string]interface{}{
 		"data": map[string]interface{}{
+			// ID is empty when using the memory store
+			"id":   0.0,
 			"name": "abc123",
 			"lat":  44.916241209323736,
 			"lon":  -93.21112681214602,
@@ -74,10 +77,10 @@ func TestCreateSensor_Invalid(t *testing.T) {
 }
 
 func TestCreateSensor_StoreFailure(t *testing.T) {
-	// Use FailingSensorStore, to test
+	// Use MockSensorStore, to test
 	// the behavior of the API when the storage backend fails
 	router := &SensorRouter{
-		store: &FailingSensorStore{},
+		store: &MockSensorStore{returnErrors: true},
 	}
 
 	// Attempt to create a sensor, with a failing store
@@ -126,6 +129,7 @@ func TestGetSensorByName(t *testing.T) {
 	res := unmarshalResponseJSON(t, rr)
 	require.Equal(t, map[string]interface{}{
 		"data": map[string]interface{}{
+			"id":   0.0,
 			"name": "abc123",
 			"lat":  44.916241209323736,
 			"lon":  -93.21112681214602,
@@ -170,7 +174,7 @@ func TestGetSensor_StoreFailure(t *testing.T) {
 	require.Equal(t, http.StatusCreated, rr.Code)
 
 	// Use a failing store backend, to test how the GET endpoint handles it
-	router.store = &FailingSensorStore{}
+	router.store = &MockSensorStore{returnErrors: true}
 
 	// Get the sensor, using GET /sensors/:name
 	rr = httpRequest(t, router, "GET", "/sensors/abc123", "")
@@ -222,6 +226,7 @@ func TestUpdateSensorByName(t *testing.T) {
 	putRes := unmarshalResponseJSON(t, rr)
 	require.Equal(t, map[string]interface{}{
 		"data": map[string]interface{}{
+			"id":   0.0,
 			"name": "abc123",
 			"lat":  -36.8779565276809,
 			"lon":  174.7881226266269744,
@@ -240,6 +245,7 @@ func TestUpdateSensorByName(t *testing.T) {
 
 	require.Equal(t, map[string]interface{}{
 		"data": map[string]interface{}{
+			"id":   0.0,
 			"name": "abc123",
 			"lat":  -36.8779565276809,
 			"lon":  174.7881226266269744,
@@ -327,7 +333,7 @@ func TestUpdateSensor_StoreFailure(t *testing.T) {
 	require.Equal(t, http.StatusCreated, rr.Code)
 
 	// Use a failing store backend, to test how the GET endpoint handles it
-	router.store = &FailingSensorStore{}
+	router.store = &MockSensorStore{returnErrors: true}
 
 	// Update the sensor, using PUT /sensors/:name
 	rr = httpRequest(t, router, "PUT", "/sensors/abc123", `
@@ -383,20 +389,26 @@ func unmarshalResponseJSON(t *testing.T, rr *httptest.ResponseRecorder) map[stri
 	return res
 }
 
-// FailingSensorStore is an implementation of SensorStore,
-// where every method returns an error.
-// This may be used to integration test API behavior in case of failing store backends
-type FailingSensorStore struct {
+// MockSensorStore is a mock implementation of SensorStore.
+// In most cases, integration tests should use an in-memory store
+// but there are some edge cases where mocking is appropriate
+type MockSensorStore struct {
+	// If true, all mocked methods will return errors
+	returnErrors bool
 }
 
-func (f FailingSensorStore) Create(sensor *store.Sensor) (*store.Sensor, error) {
-	return nil, errors.New("FailingSensorStore.Create() failing for tests, on purpose")
+func (f MockSensorStore) FindClosest(lat float64, lon float64, radiusMeters int) ([]*store.Sensor, error) {
+	return []*store.Sensor{}, errors.New("MockSensorStore.FindClosest() failing for tests, on purpose")
 }
 
-func (f FailingSensorStore) GetByName(name string) (*store.Sensor, error) {
-	return nil, errors.New("FailingSensorStore.GetByName() failing for tests, on purpose")
+func (f MockSensorStore) Create(sensor *store.Sensor) (*store.Sensor, error) {
+	return nil, errors.New("MockSensorStore.Create() failing for tests, on purpose")
 }
 
-func (f FailingSensorStore) UpdateByName(name string, sensor *store.Sensor) (*store.Sensor, error) {
-	return nil, errors.New("FailingSensorStore.UpdateByName() failing for tests, on purpose")
+func (f MockSensorStore) GetByName(name string) (*store.Sensor, error) {
+	return nil, errors.New("MockSensorStore.GetByName() failing for tests, on purpose")
+}
+
+func (f MockSensorStore) UpdateByName(name string, sensor *store.Sensor) (*store.Sensor, error) {
+	return nil, errors.New("MockSensorStore.UpdateByName() failing for tests, on purpose")
 }
