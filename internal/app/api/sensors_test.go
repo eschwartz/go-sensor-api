@@ -13,7 +13,7 @@ import (
 )
 
 func TestHealthCheck(t *testing.T) {
-	router := NewSensorRouter()
+	router := &SensorRouter{store.NewMemorySensorStore()}
 
 	// Send GET /health request
 	rr := httpRequest(t, router, "GET", "/health", "")
@@ -25,7 +25,7 @@ func TestHealthCheck(t *testing.T) {
 }
 
 func TestCreateSensor(t *testing.T) {
-	router := NewSensorRouter()
+	router := &SensorRouter{store.NewMemorySensorStore()}
 
 	// Create sensor using POST /sensors
 	rr := httpRequest(t, router, "POST", "/sensors", `
@@ -63,7 +63,7 @@ func TestCreateSensor(t *testing.T) {
 }
 
 func TestCreateSensor_Invalid(t *testing.T) {
-	router := NewSensorRouter()
+	router := &SensorRouter{store.NewMemorySensorStore()}
 
 	// Create a sensor with an invalid payload
 	rr := httpRequest(t, router, "POST", "/sensors", `
@@ -103,7 +103,7 @@ func TestCreateSensor_StoreFailure(t *testing.T) {
 }
 
 func TestGetSensorByName(t *testing.T) {
-	router := NewSensorRouter()
+	router := &SensorRouter{store.NewMemorySensorStore()}
 
 	// Create sensor using POST /sensors
 	rr := httpRequest(t, router, "POST", "/sensors", `
@@ -143,7 +143,7 @@ func TestGetSensorByName(t *testing.T) {
 }
 
 func TestGetSensorByName_Missing(t *testing.T) {
-	router := NewSensorRouter()
+	router := &SensorRouter{store.NewMemorySensorStore()}
 
 	// Get a sensor that doesn't exist, using GET /sensors/:name
 	rr := httpRequest(t, router, "GET", "/sensors/not-a-sensor", "")
@@ -159,7 +159,7 @@ func TestGetSensorByName_Missing(t *testing.T) {
 }
 
 func TestGetSensor_StoreFailure(t *testing.T) {
-	router := NewSensorRouter()
+	router := &SensorRouter{store.NewMemorySensorStore()}
 
 	// Create sensor using POST /sensors
 	rr := httpRequest(t, router, "POST", "/sensors", `
@@ -247,7 +247,7 @@ func TestFindClosestSensor(t *testing.T) {
 }
 
 func TestUpdateSensorByName(t *testing.T) {
-	router := NewSensorRouter()
+	router := &SensorRouter{store.NewMemorySensorStore()}
 
 	// Create sensor to work with using POST /sensors
 	rr := httpRequest(t, router, "POST", "/sensors", `
@@ -317,7 +317,7 @@ func TestUpdateSensorByName(t *testing.T) {
 }
 
 func TestUpdateSensorByName_Missing(t *testing.T) {
-	router := NewSensorRouter()
+	router := &SensorRouter{store.NewMemorySensorStore()}
 
 	// Update a sensor that doesn't exist, using PUT /sensors/not-a-sensor
 	rr := httpRequest(t, router, "PUT", "/sensors/not-a-sensor", `
@@ -342,7 +342,7 @@ func TestUpdateSensorByName_Missing(t *testing.T) {
 }
 
 func TestUpdateSensorByName_Invalid(t *testing.T) {
-	router := NewSensorRouter()
+	router := &SensorRouter{store.NewMemorySensorStore()}
 
 	// Create sensor to work with using POST /sensors
 	rr := httpRequest(t, router, "POST", "/sensors", `
@@ -376,7 +376,7 @@ func TestUpdateSensorByName_Invalid(t *testing.T) {
 }
 
 func TestUpdateSensor_StoreFailure(t *testing.T) {
-	router := NewSensorRouter()
+	router := &SensorRouter{store.NewMemorySensorStore()}
 
 	// Create sensor using POST /sensors
 	rr := httpRequest(t, router, "POST", "/sensors", `

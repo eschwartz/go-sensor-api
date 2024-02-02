@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"regexp"
 	"strconv"
 )
@@ -25,12 +26,20 @@ type SensorRouter struct {
 	store store.SensorStore
 }
 
-func NewSensorRouter() *SensorRouter {
-	return &SensorRouter{
-		// TODO: Replace with a persistent data store
-		store: store.NewMemorySensorStore(),
-		// NEXT: and api endpoints for CRUD using store, test
+func NewSensorRouter() (*SensorRouter, error) {
+	dbUrl := os.Getenv("DATABASE_URL")
+	if dbUrl == "" {
+		return nil, errors.New("must set DATABASE_URL")
 	}
+
+	postgisStore, err := store.NewPostgisStore(dbUrl)
+	if err != nil {
+		return nil, err
+	}
+
+	return &SensorRouter{
+		store: postgisStore,
+	}, nil
 }
 
 func (router *SensorRouter) Handler() http.Handler {
