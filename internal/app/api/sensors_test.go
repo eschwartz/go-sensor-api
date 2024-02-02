@@ -188,6 +188,64 @@ func TestGetSensor_StoreFailure(t *testing.T) {
 	}, res)
 }
 
+func TestFindClosestSensor(t *testing.T) {
+	mockStore := &MockSensorStore{}
+	router := &SensorRouter{
+		store: mockStore,
+	}
+
+	// Mock the store to return sensor values
+	// (FindClosest is not implemented in the MemoryStore)
+	mockStore.findClosestRes = []*store.Sensor{
+		{
+			ID:   1,
+			Name: "MPLS",
+			Lat:  44.97620767775624,
+			Lon:  -93.27360528040553,
+			Tags: []string{},
+		},
+		{
+			ID:   2,
+			Name: "STP",
+			Lat:  44.9558833427991,
+			Lon:  -93.09844267331863,
+			Tags: []string{},
+		},
+	}
+
+	// Query the API for the closest sensors
+	rr := httpRequest(t, router, "GET", "/sensors/closest?location=44.91,-93.22&radius=100km", "")
+	require.Equal(t, http.StatusOK, rr.Code)
+
+	// Check json response
+	res := unmarshalResponseJSON(t, rr)
+	require.Equal(t, map[string]interface{}{
+		"data": []interface{}{
+			map[string]interface{}{
+				"id":   1.0,
+				"name": "MPLS",
+				"lat":  44.97620767775624,
+				"lon":  -93.27360528040553,
+				"tags": []interface{}{},
+			},
+			map[string]interface{}{
+				"id":   2.0,
+				"name": "STP",
+				"lat":  44.9558833427991,
+				"lon":  -93.09844267331863,
+				"tags": []interface{}{},
+			},
+		},
+	}, res)
+
+	// Check that the mock store received the correct arguments, via URL query params
+	require.Equal(t, struct {
+		lat          float64
+		lon          float64
+		radiusMeters int
+	}{44.91, -93.22, 100e3}, mockStore.findClosestResArgs)
+}
+
 func TestUpdateSensorByName(t *testing.T) {
 	router := NewSensorRouter()
 
@@ -395,20 +453,50 @@ func unmarshalResponseJSON(t *testing.T, rr *httptest.ResponseRecorder) map[stri
 type MockSensorStore struct {
 	// If true, all mocked methods will return errors
 	returnErrors bool
+	// Mock return value for FindClosest()
+	findClosestRes     []*store.Sensor
+	findClosestResArgs struct {
+		lat          float64
+		lon          float64
+		radiusMeters int
+	}
 }
 
-func (f MockSensorStore) FindClosest(lat float64, lon float64, radiusMeters int) ([]*store.Sensor, error) {
-	return []*store.Sensor{}, errors.New("MockSensorStore.FindClosest() failing for tests, on purpose")
+func (s *MockSensorStore) FindClosest(lat float64, lon float64, radiusMeters int) ([]*store.Sensor, error) {
+	s.findClosestResArgs = struct {
+		lat          float64
+		lon          float64
+		radiusMeters int
+	}{
+		lat:          lat,
+		lon:          lon,
+		radiusMeters: radiusMeters,
+	}
+
+	if s.returnErrors {
+		return []*store.Sensor{}, errors.New("MockSensorStore.FindClosest() failing for tests, on purpose")
+	}
+
+	return s.findClosestRes, nil
 }
 
-func (f MockSensorStore) Create(sensor *store.Sensor) (*store.Sensor, error) {
-	return nil, errors.New("MockSensorStore.Create() failing for tests, on purpose")
+func (s *MockSensorStore) Create(sensor *store.Sensor) (*store.Sensor, error) {
+	if s.returnErrors {
+		return nil, errors.New("MockSensorStore.Create() failing for tests, on purpose")
+	}
+	panic("mock method not implemented")
 }
 
-func (f MockSensorStore) GetByName(name string) (*store.Sensor, error) {
-	return nil, errors.New("MockSensorStore.GetByName() failing for tests, on purpose")
+func (s *MockSensorStore) GetByName(name string) (*store.Sensor, error) {
+	if s.returnErrors {
+		return nil, errors.New("MockSensorStore.GetByName() failing for tests, on purpose")
+	}
+	panic("mock method not implemented")
 }
 
-func (f MockSensorStore) UpdateByName(name string, sensor *store.Sensor) (*store.Sensor, error) {
-	return nil, errors.New("MockSensorStore.UpdateByName() failing for tests, on purpose")
+func (s *MockSensorStore) UpdateByName(name string, sensor *store.Sensor) (*store.Sensor, error) {
+	if s.returnErrors {
+		return nil, errors.New("MockSensorStore.UpdateByName() failing for tests, on purpose")
+	}
+	panic("mock method not implemented")
 }

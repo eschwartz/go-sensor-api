@@ -74,7 +74,7 @@ Retrieve metadata for sensors closest to a given location.
 #### Example
 
 ```
-GET /sensors/closest/?location=44.9,-93.211&radius=100km&limit=10
+GET /sensors/closest/?location=44.9,-93.211&radius=100km
 ```
 
 ```json
@@ -103,7 +103,6 @@ HTTP 200
 |-----------|----------|---------|-------------------------------------------------------------------------------------------------------------------------|-----------------|
 | location  | x        | -       | Latitude / longitute coordinate, from which to center the search                                                        | `44.9,-93.211`  |
 | radius    |          | `20km`  | Results will be included within this radius from the `location`. Supported units are `mi` (miles) and `km` (kilometers) | `50mi`, `100km` |           
-| limit     |          | `10`    | Max number of sensor results to return                                                                                  | 
 
 ### POST /sensors
 

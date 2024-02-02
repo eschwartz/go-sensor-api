@@ -9,7 +9,17 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"regexp"
+	"strconv"
 )
+
+// Regexp for parsing radius query parameters
+// eg "50km"
+var radiusParamRegexp = regexp.MustCompile("([0-9]+)(km|mi)")
+
+// Regexp for parsing location query parameter
+// eg 45.12,-90.34
+var locationParamRegexp = regexp.MustCompile("(-?[0-9]+\\.?[0-9]*),(-?[0-9]+\\.?[0-9]*)")
 
 type SensorRouter struct {
 	store store.SensorStore
@@ -34,6 +44,10 @@ func (router *SensorRouter) Handler() http.Handler {
 	r.HandleFunc("/sensors", WithJSONHandler(router.CreateSensorHandler)).
 		Methods("POST").
 		Headers("Content-Type", "application/json")
+
+	// GET /sensors/closest?location=&radius=
+	r.HandleFunc("/sensors/closest", WithJSONHandler(router.FindClosestSensor)).
+		Queries("location", "{location}", "radius", "{radius}")
 
 	// GET /sensors/{name} - Get Sensor by Name
 	r.HandleFunc("/sensors/{name}", WithJSONHandler(router.GetSensorByNameHandler)).
@@ -99,6 +113,78 @@ func (router *SensorRouter) GetSensorByNameHandler(r *http.Request) (interface{}
 	return SensorDetailsResponse{*sensor}, http.StatusOK, nil
 }
 
+func (router *SensorRouter) FindClosestSensor(r *http.Request) (interface{}, int, error) {
+	// Load query params
+	vars := mux.Vars(r)
+	locationParam, ok := vars["location"]
+	if !ok {
+		return nil, http.StatusBadRequest, errors.New("missing required \"location\" param")
+	}
+	radiusParam, ok := vars["radius"]
+	if !ok {
+		return nil, http.StatusBadRequest, errors.New("missing required \"radius\" param")
+	}
+
+	// Parse radius, eg "50km"
+	radiusMatch := radiusParamRegexp.FindStringSubmatch(radiusParam)
+	if radiusMatch == nil {
+		return nil, http.StatusBadRequest,
+			errors.New("invalid value for \"radius\": must be formatted like \"50km\" or \"100mi\"")
+	}
+	// If the regex matches, we should always have 2 groups. If not, we didn't something wrong here
+	if len(radiusMatch) != 3 {
+		log.Printf("GET /sensors/closest: Unexpected number of regexp match groups for radius: \"%s\"", radiusParam)
+		return nil, http.StatusInternalServerError, errors.New("internal server error")
+	}
+	// Convert radius to meters
+	radiusValue, err := strconv.Atoi(radiusMatch[1])
+	if err != nil {
+		return nil, http.StatusBadRequest,
+			errors.New("invalid value for \"radius\": must be formatted like \"50km\" or \"100mi\"")
+	}
+	radiusUnits := radiusMatch[2]
+	var radiusMeters int
+	if radiusUnits == "km" {
+		radiusMeters = radiusValue * 1000
+	} else if radiusUnits == "mi" {
+		radiusMeters = int(float64(radiusValue) * 1609.34)
+	} else {
+		return nil, http.StatusBadRequest,
+			errors.New("invalid unit for \"radius\": must be \"km\" or \"mi\"")
+	}
+
+	// Parse location, eg 45.12,-90.34
+	locationMatch := locationParamRegexp.FindStringSubmatch(locationParam)
+	if locationMatch == nil {
+		return nil, http.StatusBadRequest,
+			errors.New("invalid value for \"location\": must be formatted like \"45.12,-90.34")
+	}
+	// If the regex matches, we should always have 2 groups. If not, we didn't something wrong here
+	if len(locationMatch) != 3 {
+		log.Printf("GET /sensors/closest: Unexpected number of regexp match groups for location: \"%s\"", locationParam)
+		return nil, http.StatusInternalServerError, errors.New("internal server error")
+	}
+	lat, err := strconv.ParseFloat(locationMatch[1], 64)
+	if err != nil {
+		return nil, http.StatusBadRequest,
+			errors.New("invalid value for \"location\": must be formatted like \"45.12,-90.34")
+	}
+	lon, err := strconv.ParseFloat(locationMatch[2], 64)
+	if err != nil {
+		return nil, http.StatusBadRequest,
+			errors.New("invalid value for \"location\": must be formatted like \"45.12,-90.34")
+	}
+
+	// Lookup closest sensors
+	sensors, err := router.store.FindClosest(lat, lon, radiusMeters)
+	if err != nil {
+		log.Printf("GET /sensors/closest failed to FindClosest(): %s", err)
+		return nil, http.StatusInternalServerError, errors.New("internal server error")
+	}
+
+	return SensorListResponse{sensors}, http.StatusOK, nil
+}
+
 func (router *SensorRouter) UpdateSensorByNameHandler(r *http.Request) (interface{}, int, error) {
 	// Get sensor {name} from URL
 	vars := mux.Vars(r)
@@ -150,4 +236,8 @@ func decodeSensorJSON(r io.Reader) (*store.Sensor, error) {
 
 type SensorDetailsResponse struct {
 	Data store.Sensor `json:"data"`
+}
+
+type SensorListResponse struct {
+	Data []*store.Sensor `json:"data"`
 }
