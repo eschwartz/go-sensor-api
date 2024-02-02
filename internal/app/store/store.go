@@ -23,4 +23,5 @@ type SensorStore interface {
 	Create(sensor *Sensor) (*Sensor, error)
 	GetByName(name string) (*Sensor, error)
 	UpdateByName(name string, sensor *Sensor) (*Sensor, error)
+	FindClosest(lat float64, lon float64, radiusMeters int) ([]*Sensor, error)
 }

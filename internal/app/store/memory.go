@@ -1,5 +1,7 @@
 package store
 
+import "errors"
+
 // MemorySensorStore is an in-memory store of Sensor models
 // Future iterations should transition to a persistent data store
 // (though the in-memory may continue to be useful for testing)
@@ -44,4 +46,8 @@ func (s *MemorySensorStore) UpdateByName(name string, sensor *Sensor) (*Sensor, 
 	s.byName[name] = sensor
 
 	return sensor, nil
+}
+
+func (s *MemorySensorStore) FindClosest(lat float64, lon float64, radiusMeters int) ([]*Sensor, error) {
+	return []*Sensor{}, errors.New("not implemented")
 }

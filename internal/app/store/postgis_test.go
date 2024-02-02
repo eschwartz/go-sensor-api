@@ -106,7 +106,7 @@ func TestPostgisStore_CreateAndGetByNameNoTags(t *testing.T) {
 	require.NotEqual(t, 0, sensor.ID)
 }
 
-func TestNewPostgisStore_GetByNameMissing(t *testing.T) {
+func TestPostgisStore_GetByNameMissing(t *testing.T) {
 	store, cleanup := testSetup(t)
 	defer cleanup()
 
@@ -151,7 +151,7 @@ func TestPostgisStore_UpdateByName(t *testing.T) {
 	require.NotEqual(t, 0, sensor.ID)
 }
 
-func TestNewPostgisStore_UpdateMissing(t *testing.T) {
+func TestPostgisStore_UpdateMissing(t *testing.T) {
 	store, cleanup := testSetup(t)
 	defer cleanup()
 
@@ -164,4 +164,54 @@ func TestNewPostgisStore_UpdateMissing(t *testing.T) {
 	})
 	require.Error(t, err)
 	require.Equal(t, "failed to update sensor: no sensor exists with name \"sensor-xyz\"", err.Error())
+}
+
+func TestNewPostgisStore_FindClosest(t *testing.T) {
+	store, cleanup := testSetup(t)
+	defer cleanup()
+
+	// Create sensors in multiple locations
+	testSensors := []*Sensor{
+		// St. Paul, MN
+		{Name: "STP", Lat: 44.9558833427991, Lon: -93.09844267331863},
+		// Minneapolis, MN (downtown)
+		{Name: "MPLS", Lat: 44.97620767775624, Lon: -93.27360528040553},
+		// Chicago, IL
+		{Name: "CHI", Lat: 41.86950364771445, Lon: -87.68055283399988},
+	}
+	for _, sensor := range testSensors {
+		_, err := store.Create(sensor)
+		require.NoError(t, err)
+	}
+
+	// Find locations within 100km of S. Minneapolis
+	sensors, err := store.FindClosest(44.91016213524799, -93.22412239250284, 100e3)
+	require.NoError(t, err)
+	require.Len(t, sensors, 2)
+	require.Equal(t, Sensor{
+		ID:   sensors[0].ID,
+		Name: "MPLS",
+		Lat:  44.97620767775624,
+		Lon:  -93.27360528040553,
+		Tags: []string{},
+	}, *sensors[0])
+	require.Equal(t, Sensor{
+		ID:   sensors[1].ID,
+		Name: "STP",
+		Lat:  44.9558833427991,
+		Lon:  -93.09844267331863,
+		Tags: []string{},
+	}, *sensors[1])
+}
+
+func TestNewPostgisStore_FindClosestNoResults(t *testing.T) {
+	store, cleanup := testSetup(t)
+	defer cleanup()
+
+	// Find closest locations, when none exist
+	sensors, err := store.FindClosest(44.91016213524799, -93.22412239250284, 100e3)
+	require.NoError(t, err)
+
+	// Should return an empty slice
+	require.Len(t, sensors, 0)
 }

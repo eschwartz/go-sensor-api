@@ -67,6 +67,7 @@ func (store *PostgisStore) GetByName(name string) (*Sensor, error) {
 		SELECT 
 			sensors.id, 
 			sensors.location,
+			-- Join in tags, as a nested array
 			array_remove(array_agg(tags.value), NULL) as tags
 		FROM sensors
 		LEFT JOIN tags on sensors.id = tags.sensor_id
@@ -139,6 +140,56 @@ func (store *PostgisStore) UpdateByName(name string, sensor *Sensor) (*Sensor, e
 	}
 
 	return sensor, nil
+}
+
+func (store *PostgisStore) FindClosest(lat float64, lon float64, radiusMeters int) ([]*Sensor, error) {
+	// Query DB for closest sensors
+	rows, err := store.db.Query(`
+		SELECT 
+			sensors.id, 
+			sensors.name,
+			sensors.location,
+			-- Join in tags, as a nested array
+			array_remove(array_agg(tags.value), NULL) as tags,
+			ST_Distance(sensors.location::geography, GeomFromEWKB($1)::geography) as distance
+		FROM sensors
+		LEFT JOIN tags on sensors.id = tags.sensor_id
+		-- find within radius
+		--WHERE ST_DWithin(sensors.location, ST_MakePoint($1, $2)::geography, $3)
+		WHERE ST_DWithin(sensors.location::geography, GeomFromEWKB($1)::geography, $2)
+		GROUP BY sensors.id
+		-- sort by distance
+		ORDER BY ST_Distance(sensors.location::geography, GeomFromEWKB($1)::geography);
+	`, newGisPoint(lat, lon), radiusMeters)
+	if err != nil {
+		return []*Sensor{}, err
+	}
+	defer rows.Close()
+
+	// Iterate through results, to create slice of Sensors
+	var sensors []*Sensor
+	for rows.Next() {
+		// hydrate values from DB row
+		var id int
+		var name string
+		var tags pq.StringArray
+		var distance float64
+		location := newGisPoint(0, 0)
+		if err := rows.Scan(&id, &name, &location, &tags, &distance); err != nil {
+			return sensors, nil
+		}
+
+		// Create a sensor for db row data
+		sensors = append(sensors, &Sensor{
+			ID:   id,
+			Name: name,
+			Lon:  location.X,
+			Lat:  location.Y,
+			Tags: tags,
+		})
+	}
+
+	return sensors, rows.Err()
 }
 
 func (store *PostgisStore) Close() error {
