@@ -20,7 +20,7 @@ var radiusParamRegexp = regexp.MustCompile("([0-9]+)(km|mi)")
 
 // Regexp for parsing location query parameter
 // eg 45.12,-90.34
-var locationParamRegexp = regexp.MustCompile("(-?[0-9]+\\.?[0-9]*),(-?[0-9]+\\.?[0-9]*)")
+var latLonRegexp = regexp.MustCompile("^(-?[0-9]+\\.?[0-9]*),(-?[0-9]+\\.?[0-9]*)$")
 
 type SensorRouter struct {
 	store store.SensorStore
@@ -163,8 +163,10 @@ func (router *SensorRouter) FindClosestSensor(r *http.Request) (interface{}, int
 	}
 
 	// Parse location, eg 45.12,-90.34
-	locationMatch := locationParamRegexp.FindStringSubmatch(locationParam)
+	locationMatch := latLonRegexp.FindStringSubmatch(locationParam)
 	if locationMatch == nil {
+		// Attempt to geocode the location, assuming it's a place name / address
+
 		return nil, http.StatusBadRequest,
 			errors.New("invalid value for \"location\": must be formatted like \"45.12,-90.34")
 	}

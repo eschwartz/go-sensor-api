@@ -155,7 +155,6 @@ func (store *PostgisStore) FindClosest(lat float64, lon float64, radiusMeters in
 		FROM sensors
 		LEFT JOIN tags on sensors.id = tags.sensor_id
 		-- find within radius
-		--WHERE ST_DWithin(sensors.location, ST_MakePoint($1, $2)::geography, $3)
 		WHERE ST_DWithin(sensors.location::geography, GeomFromEWKB($1)::geography, $2)
 		GROUP BY sensors.id
 		-- sort by distance
