@@ -1,4 +1,4 @@
-module github.com/eschwartz/pingthings-sensor-api
+module github.com/eschwartz/go-sensor-api
 
 go 1.20
 

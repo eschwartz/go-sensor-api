@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"github.com/eschwartz/pingthings-sensor-api/internal/app/store"
+	"github.com/eschwartz/go-sensor-api/internal/app/store"
 	"github.com/stretchr/testify/require"
 	"io"
 	"net/http"

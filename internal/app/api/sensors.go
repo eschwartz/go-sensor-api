@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/eschwartz/pingthings-sensor-api/internal/app/store"
+	"github.com/eschwartz/go-sensor-api/internal/app/store"
 	"github.com/gorilla/mux"
 	"io"
 	"log"

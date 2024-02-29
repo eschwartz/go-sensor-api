@@ -1,11 +1,11 @@
-# Sensor Metadata API
+# Sample Go API: Sensor Metadata
 
-Technical challenge for PingThings Go Developer/SRE application, submitted by Edan Schwartz, Feb 2024.
+A sample REST API written in Go. Covers a hypothetical use case that tracks metadata for physical sensors in various geographical locations.
 
-## Task
+## Features
 
-Please build a JSON REST API for storing and querying sensor metadata.
-At a minimum, this API should expose endpoints for the following:
+A JSON REST API for storing and querying sensor metadata.
+Exposes endpoints for the following:
 
 - Storing name, location (gps position), and a list of tags for each sensor.
 - Retrieving metadata for an individual sensor by name.
@@ -13,7 +13,6 @@ At a minimum, this API should expose endpoints for the following:
 - Querying to find the sensor nearest to a given location (by lat/lon).
 - Query to find sensor nearest to a location by place name (geocoded).
 
-It is up to you how you structure your application, but please write it in Go and include anything you would in a professional project (i.e.: README, tests, input validation, etc).
 
 ## Usage
 

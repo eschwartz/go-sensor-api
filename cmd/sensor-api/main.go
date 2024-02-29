@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/eschwartz/pingthings-sensor-api/internal/app/api"
+	"github.com/eschwartz/go-sensor-api/internal/app/api"
 	"log"
 	"net/http"
 	"os"

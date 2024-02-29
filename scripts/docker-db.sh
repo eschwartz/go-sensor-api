@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+set -eu
+
 # Start a postgres docker container, with the postgis extension installed
 # The SQL code in ./db-init.sql will be run on startup
 #
@@ -12,3 +14,5 @@ docker run \
     -v ./scripts/db-init.sql:/docker-entrypoint-initdb.d/db-init.sql \
     -d \
     postgis/postgis
+
+echo "Postgres server running on port 5432"
